@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Cruscotto</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --ink: #2d2a24; --ink-soft: #6c655a; --paper: #faf8f4; --card: #ffffff;
+    --line: #e8e3da; --ambra: #b8860b; --ambra-bg: #fdf3dd;
+    --rosso-vivo: #c0392b; --rosso-vivo-bg: #fbe9e7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.45;
+    padding: 16px; padding-bottom: 60px; max-width: 760px; margin: 0 auto;
+  }
+  h1 { font-size: 1.35rem; margin-bottom: 2px; }
+  .sub { color: var(--ink-soft); font-size: .85rem; margin-bottom: 16px; }
+
+  /* ---- login ---- */
+  #login { display: none; margin-top: 12vh; text-align: center; }
+  #login .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 20px; }
+  #login input {
+    width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--line);
+    border-radius: 10px; margin: 14px 0 10px;
+  }
+  #login button {
+    width: 100%; padding: 12px; font-size: 1rem; border: 0; border-radius: 10px;
+    background: var(--ink); color: #fff; cursor: pointer;
+  }
+  #login .msg { margin-top: 12px; font-size: .9rem; color: var(--ink-soft); }
+
+  /* ---- app ---- */
+  #app { display: none; }
+  .topbar { display: flex; justify-content: space-between; align-items: baseline; }
+  .topbar a { color: var(--ink-soft); font-size: .8rem; text-decoration: none; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border-radius: 999px; font-size: .82rem; font-weight: 600; color: #fff;
+  }
+  .pill .n { background: rgba(255,255,255,.28); border-radius: 999px; padding: 0 7px; font-size: .8rem; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    margin-bottom: 16px; overflow: hidden; border-left-width: 5px;
+  }
+  .card-head {
+    padding: 10px 14px; color: #fff; font-weight: 700; font-size: .95rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-head .add-btn {
+    background: rgba(255,255,255,.25); border: 0; color: inherit; border-radius: 8px;
+    padding: 4px 10px; font-size: .85rem; cursor: pointer; font-weight: 600;
+  }
+  .riga {
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px;
+    border-top: 1px solid var(--line); cursor: pointer;
+  }
+  .riga:first-of-type { border-top: 0; }
+  .riga.fatto { opacity: .5; }
+  .riga.fatto .testo { text-decoration: line-through; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .riga .corpo { flex: 1; min-width: 0; }
+  .riga .cliente { font-weight: 700; }
+  .riga .gruppo-tag { font-size: .72rem; color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; margin-left: 6px; }
+  .riga .prio { color: var(--rosso-vivo); font-weight: 700; margin-right: 3px; }
+  .riga .testo { font-size: .92rem; color: var(--ink); }
+  .riga .note { font-size: .8rem; color: var(--ink-soft); }
+  .chip {
+    flex-shrink: 0; font-size: .74rem; font-weight: 700; border-radius: 7px;
+    padding: 3px 8px; margin-top: 2px; white-space: nowrap;
+  }
+  .chip.neutro { background: var(--paper); color: var(--ink-soft); border: 1px solid var(--line); }
+  .chip.ambra  { background: var(--ambra-bg); color: var(--ambra); }
+  .chip.rosso  { background: var(--rosso-vivo-bg); color: var(--rosso-vivo); }
+  .spunta {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line);
+    background: #fff; cursor: pointer; font-size: 14px; line-height: 20px; text-align: center; color: transparent;
+  }
+  .riga.fatto .spunta { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+  .vuota { padding: 14px; font-size: .85rem; color: var(--ink-soft); font-style: italic; }
+
+  .quick { padding: 12px 14px; border-top: 1px solid var(--line); display: none; background: var(--paper); }
+  .quick input, .quick select {
+    width: 100%; padding: 10px; font-size: .95rem; border: 1px solid var(--line);
+    border-radius: 9px; margin-bottom: 8px; background: #fff;
+  }
+  .quick .row2 { display: flex; gap: 8px; }
+  .quick button { padding: 10px 16px; border: 0; border-radius: 9px; background: var(--ink); color: #fff; font-size: .95rem; cursor: pointer; }
+
+  .footer-opts { text-align: center; margin-top: 8px; font-size: .85rem; color: var(--ink-soft); }
+  .footer-opts label { cursor: pointer; }
+
+  /* ---- modal modifica ---- */
+  #overlay {
+    display: none; position: fixed; inset: 0; background: rgba(45,42,36,.45); z-index: 10;
+    align-items: flex-end; justify-content: center;
+  }
+  #modal {
+    background: #fff; border-radius: 16px 16px 0 0; padding: 18px 16px 26px;
+    width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto;
+  }
+  #modal h3 { font-size: 1rem; margin-bottom: 12px; }
+  #modal label { font-size: .78rem; color: var(--ink-soft); display: block; margin: 8px 0 3px; }
+  #modal input, #modal select, #modal textarea {
+    width: 100%; padding: 10px; font-size: .95rem; border: 1px solid var(--line); border-radius: 9px; background: #fff;
+  }
+  #modal .azioni { display: flex; gap: 8px; margin-top: 16px; }
+  #modal .azioni button { flex: 1; padding: 12px; border: 0; border-radius: 10px; font-size: .95rem; cursor: pointer; }
+  #m-salva { background: var(--ink); color: #fff; }
+  #m-elimina { background: var(--rosso-vivo-bg); color: var(--rosso-vivo); }
+  #m-chiudi { background: var(--paper); color: var(--ink-soft); border: 1px solid var(--line) !important; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="box">
+    <h1>Cruscotto</h1>
+    <p class="sub">Accesso riservato</p>
+    <input type="email" id="email" placeholder="La tua email" autocomplete="username">
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+    <button id="btn-login">Accedi</button>
+    <div class="msg" id="login-msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div><h1>Cruscotto</h1><div class="sub" id="oggi"></div></div>
+    <a href="#" id="logout">esci</a>
+  </div>
+  <div class="pills" id="pills"></div>
+  <div id="aree"></div>
+  <div class="footer-opts">
+    <label><input type="checkbox" id="mostra-fatti"> Mostra completati</label>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="modal">
+    <h3>Modifica voce</h3>
+    <label>Cliente (iniziali o codice)</label><input id="m-cliente">
+    <label>Cosa fare</label><input id="m-cosa">
+    <label>Scadenza</label><input type="date" id="m-scadenza">
+    <label>Gruppo</label><input id="m-gruppo" placeholder="es. beneficiari 2026">
+    <label>Priorità</label>
+    <select id="m-prio"><option value="0">Normale</option><option value="1">Alta</option></select>
+    <label>Note</label><textarea id="m-note" rows="2"></textarea>
+    <div class="azioni">
+      <button id="m-elimina">Elimina</button>
+      <button id="m-chiudi">Annulla</button>
+      <button id="m-salva">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://rlzktnsyujfzocfmyhju.supabase.co';
+const SB_KEY = 'sb_publishable_1PwU8NRDivpIXWglubDIUw_OAgMUsqz';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const COLORI = {
+  rosso:   { pieno: '#b23b3b' }, azzurro: { pieno: '#2f7ab0' },
+  giallo:  { pieno: '#b8901a' }, verde:   { pieno: '#3f8f6b' },
+  prugna:  { pieno: '#7d5a9e' }, grigio:  { pieno: '#6c655a' },
+};
+const colore = (nome) => COLORI[nome] || COLORI.grigio;
+
+let AREE = [], VOCI = [], vociAperte = new Set();
+
+// ---------- auth ----------
+const $ = (id) => document.getElementById(id);
+
+sb.auth.onAuthStateChange((_ev, session) => {
+  if (session) { $('login').style.display = 'none'; $('app').style.display = 'block'; carica(); }
+  else { $('app').style.display = 'none'; $('login').style.display = 'block'; }
+});
+
+$('btn-login').onclick = async () => {
+  const email = $('email').value.trim();
+  const password = $('password').value;
+  if (!email || !password) return;
+  $('login-msg').textContent = 'Accesso in corso…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) $('login-msg').textContent = 'Errore: ' + error.message;
+};
+
+$('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-login').click(); });
+
+$('logout').onclick = (e) => { e.preventDefault(); sb.auth.signOut(); };
+
+// ---------- dati ----------
+async function carica() {
+  const [ra, rv] = await Promise.all([
+    sb.from('aree').select('*').order('ordine'),
+    sb.from('voci').select('*').order('scadenza', { ascending: true, nullsFirst: false }),
+  ]);
+  if (ra.error || rv.error) { alert('Errore di caricamento: ' + (ra.error || rv.error).message); return; }
+  AREE = ra.data; VOCI = rv.data;
+  render();
+}
+
+// ---------- chip scadenza ----------
+function chip(v) {
+  if (!v.scadenza) return '';
+  if (v.stato === 'fatto') return '';           // voce chiusa: chip spento
+  const oggi = new Date(); oggi.setHours(0,0,0,0);
+  const s = new Date(v.scadenza + 'T00:00:00');
+  const gg = Math.round((s - oggi) / 86400000);
+  const data = s.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+  if (gg < 0)  return `<span class="chip rosso">Scaduto ${data}</span>`;
+  if (gg === 0) return `<span class="chip rosso">Oggi</span>`;
+  if (gg === 1) return `<span class="chip ambra">Domani</span>`;
+  if (gg <= 7)  return `<span class="chip ambra">Fra ${gg} gg · ${data}</span>`;
+  return `<span class="chip neutro">${data}</span>`;
+}
+
+// ---------- render ----------
+const esc = (t) => (t || '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render() {
+  $('oggi').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  const mostraFatti = $('mostra-fatti').checked;
+
+  $('pills').innerHTML = AREE.map((a) => {
+    const n = VOCI.filter((v) => v.area_id === a.id && v.stato !== 'fatto').length;
+    return `<span class="pill" style="background:${colore(a.colore).pieno}">${esc(a.nome)} <span class="n">${n}</span></span>`;
+  }).join('');
+
+  $('aree').innerHTML = AREE.map((a) => {
+    const c = colore(a.colore).pieno;
+    let voci = VOCI.filter((v) => v.area_id === a.id);
+    if (!mostraFatti) voci = voci.filter((v) => v.stato !== 'fatto');
+    voci.sort((x, y) => ((x.stato === 'fatto') - (y.stato === 'fatto'))
+      || ((x.scadenza || '9999-12-31').localeCompare(y.scadenza || '9999-12-31')));
+
+    const righe = voci.length ? voci.map((v) => `
+      <div class="riga ${v.stato === 'fatto' ? 'fatto' : ''}" data-id="${v.id}">
+        <button class="spunta" data-toggle="${v.id}" title="Segna fatto">✓</button>
+        <span class="dot" style="background:${c}"></span>
+        <div class="corpo">
+          <div>${v.priorita > 0 ? '<span class="prio">⚑</span>' : ''}<span class="cliente">${esc(v.cliente)}</span>${v.gruppo ? `<span class="gruppo-tag">${esc(v.gruppo)}</span>` : ''}</div>
+          <div class="testo">${esc(v.cosa_fare)}</div>
+          ${v.note ? `<div class="note">${esc(v.note)}</div>` : ''}
+        </div>
+        ${chip(v)}
+      </div>`).join('')
+      : '<div class="vuota">Niente in sospeso</div>';
+
+    const aperto = vociAperte.has(a.id);
+    return `
+      <div class="card" style="border-left-color:${c}">
+        <div class="card-head" style="background:${c}">
+          <span>${esc(a.nome)}</span>
+          <button class="add-btn" data-add="${a.id}">${aperto ? 'chiudi' : '+ aggiungi'}</button>
+        </div>
+        ${righe}
+        <div class="quick" id="quick-${a.id}" style="${aperto ? 'display:block' : ''}">
+          <input id="q-cliente-${a.id}" placeholder="Cliente">
+          <input id="q-cosa-${a.id}" placeholder="Cosa fare">
+          <input id="q-nota-${a.id}" placeholder="Nota (facoltativa)">
+          <div class="row2">
+            <input type="date" id="q-data-${a.id}">
+            <button data-save="${a.id}">Aggiungi</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // eventi
+  document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
+    const id = b.dataset.add;
+    vociAperte.has(id) ? vociAperte.delete(id) : vociAperte.add(id);
+    render();
+  });
+  document.querySelectorAll('[data-save]').forEach((b) => b.onclick = () => aggiungi(b.dataset.save));
+  document.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); toggleFatto(b.dataset.toggle); });
+  document.querySelectorAll('.riga').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
+}
+
+$('mostra-fatti').onchange = render;
+
+// ---------- azioni ----------
+async function aggiungi(areaId) {
+  const cliente = $(`q-cliente-${areaId}`).value.trim();
+  const cosa = $(`q-cosa-${areaId}`).value.trim();
+  const nota = $(`q-nota-${areaId}`).value.trim() || null;
+  const data = $(`q-data-${areaId}`).value || null;
+  if (!cliente && !cosa) return;
+  const { error } = await sb.from('voci').insert({ area_id: areaId, cliente, cosa_fare: cosa, scadenza: data, note: nota });
+  if (error) { alert('Errore: ' + error.message); return; }
+  vociAperte.delete(areaId);
+  carica();
+}
+
+async function toggleFatto(id) {
+  const v = VOCI.find((x) => x.id === id);
+  const { error } = await sb.from('voci').update({ stato: v.stato === 'fatto' ? 'da_fare' : 'fatto' }).eq('id', id);
+  if (error) alert('Errore: ' + error.message); else carica();
+}
+
+// ---------- modal ----------
+let modalId = null;
+function apriModal(id) {
+  const v = VOCI.find((x) => x.id === id);
+  if (!v) return;
+  modalId = id;
+  $('m-cliente').value = v.cliente || '';
+  $('m-cosa').value = v.cosa_fare || '';
+  $('m-scadenza').value = v.scadenza || '';
+  $('m-gruppo').value = v.gruppo || '';
+  $('m-prio').value = String(v.priorita || 0);
+  $('m-note').value = v.note || '';
+  $('overlay').style.display = 'flex';
+}
+$('m-chiudi').onclick = () => { $('overlay').style.display = 'none'; };
+$('overlay').onclick = (e) => { if (e.target.id === 'overlay') $('overlay').style.display = 'none'; };
+$('m-salva').onclick = async () => {
+  const { error } = await sb.from('voci').update({
+    cliente: $('m-cliente').value.trim(),
+    cosa_fare: $('m-cosa').value.trim(),
+    scadenza: $('m-scadenza').value || null,
+    gruppo: $('m-gruppo').value.trim() || null,
+    priorita: Number($('m-prio').value),
+    note: $('m-note').value.trim() || null,
+  }).eq('id', modalId);
+  $('overlay').style.display = 'none';
+  if (error) alert('Errore: ' + error.message); else carica();
+};
+$('m-elimina').onclick = async () => {
+  if (!confirm('Eliminare questa voce?')) return;
+  const { error } = await sb.from('voci').delete().eq('id', modalId);
+  $('overlay').style.display = 'none';
+  if (error) alert('Errore: ' + error.message); else carica();
+};
+</script>
+</body>
+</html>
