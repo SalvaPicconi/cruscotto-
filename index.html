@@ -58,13 +58,22 @@
     background: rgba(255,255,255,.25); border: 0; color: inherit; border-radius: 8px;
     padding: 4px 10px; font-size: .85rem; cursor: pointer; font-weight: 600;
   }
+  .card-head .titolo { display: flex; flex-direction: column; min-width: 0; }
+  .card-head .conta { font-weight: 500; font-size: .74rem; opacity: .85; }
+  .card-head .add-btn { flex-shrink: 0; white-space: nowrap; }
   .riga {
     display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px;
     border-top: 1px solid var(--line); cursor: pointer;
   }
   .riga:first-of-type { border-top: 0; }
-  .riga.fatto { opacity: .5; }
-  .riga.fatto .testo { text-decoration: line-through; }
+  .riga.chiusa { opacity: .5; }
+  .riga.chiusa .testo { text-decoration: line-through; }
+  .riga.in-corso { background: #fffdf6; }
+  .tag-lav {
+    font-size: .7rem; font-weight: 600; white-space: nowrap;
+    color: var(--ambra); background: var(--ambra-bg); border-radius: 6px; padding: 0 5px; margin-left: 6px;
+  }
+  .stato-btn { line-height: 18px; }
   .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
   .riga .corpo { flex: 1; min-width: 0; }
   .riga .cliente { font-weight: 700; }
@@ -79,11 +88,15 @@
   .chip.neutro { background: var(--paper); color: var(--ink-soft); border: 1px solid var(--line); }
   .chip.ambra  { background: var(--ambra-bg); color: var(--ambra); }
   .chip.rosso  { background: var(--rosso-vivo-bg); color: var(--rosso-vivo); }
-  .spunta {
-    flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line);
-    background: #fff; cursor: pointer; font-size: 14px; line-height: 20px; text-align: center; color: transparent;
+  .stato-btn {
+    flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line);
+    background: #fff; cursor: pointer; font-size: 13px; line-height: 22px; text-align: center;
+    padding: 0; color: transparent; font-weight: 700;
   }
-  .riga.fatto .spunta { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+  .riga.in-corso .stato-btn { background: var(--ambra-bg); border-color: var(--ambra); color: var(--ambra); }
+  .riga.chiusa .stato-btn { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink-soft); font-size: .78rem; font-weight: 400; padding-left: 27px; }
+  .legenda b { font-weight: 700; color: var(--ink); }
   .vuota { padding: 14px; font-size: .85rem; color: var(--ink-soft); font-style: italic; }
 
   .quick { padding: 12px 14px; border-top: 1px solid var(--line); display: none; background: var(--paper); }
@@ -94,8 +107,28 @@
   .quick .row2 { display: flex; gap: 8px; }
   .quick button { padding: 10px 16px; border: 0; border-radius: 9px; background: var(--ink); color: #fff; font-size: .95rem; cursor: pointer; }
 
-  .footer-opts { text-align: center; margin-top: 8px; font-size: .85rem; color: var(--ink-soft); }
-  .footer-opts label { cursor: pointer; }
+  /* ---- barra vista ---- */
+  .viewbar {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; margin-bottom: 16px; font-size: .85rem;
+  }
+  .viewbar label { display: flex; align-items: center; gap: 9px; cursor: pointer; font-weight: 600; }
+  .viewbar input { width: 18px; height: 18px; accent-color: var(--ink); flex-shrink: 0; }
+  .viewbar .hint { color: var(--ink-soft); font-size: .78rem; font-weight: 400; padding-left: 27px; }
+
+  /* ---- toast annulla ---- */
+  #toast {
+    display: none; position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--ink); color: #fff; border-radius: 12px; padding: 12px 14px; z-index: 20;
+    width: calc(100% - 32px); max-width: 520px; box-shadow: 0 6px 20px rgba(45,42,36,.28);
+    align-items: center; justify-content: space-between; gap: 12px; font-size: .88rem;
+  }
+  #toast .t-testo { flex: 1; min-width: 0; }
+  #toast button {
+    background: #fff; color: var(--ink); border: 0; border-radius: 8px;
+    padding: 7px 14px; font-size: .85rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+  }
 
   /* ---- modal modifica ---- */
   #overlay {
@@ -137,10 +170,20 @@
     <a href="#" id="logout">esci</a>
   </div>
   <div class="pills" id="pills"></div>
-  <div id="aree"></div>
-  <div class="footer-opts">
-    <label><input type="checkbox" id="mostra-fatti"> Mostra completati</label>
+  <div class="viewbar">
+    <label><input type="checkbox" id="mostra-fatti"> Mostra anche le chiuse <span id="conta-fatti"></span></label>
+    <div class="legenda">
+      <span>Tocca il quadratino per cambiare stato:</span>
+      <span><b>☐ Da fare</b> → <b>… In lavorazione</b> → <b>✓ Chiusa</b></span>
+      <span>Solo le chiuse escono dalla lista, e restano in archivio: niente viene mai cancellato.</span>
+    </div>
   </div>
+  <div id="aree"></div>
+</div>
+
+<div id="toast">
+  <span class="t-testo" id="toast-testo"></span>
+  <button id="toast-undo">Annulla</button>
 </div>
 
 <div id="overlay">
@@ -150,6 +193,12 @@
     <label>Cosa fare</label><input id="m-cosa">
     <label>Scadenza</label><input type="date" id="m-scadenza">
     <label>Gruppo</label><input id="m-gruppo" placeholder="es. beneficiari 2026">
+    <label>Stato</label>
+    <select id="m-stato">
+      <option value="da_fare">Da fare</option>
+      <option value="in_corso">In lavorazione</option>
+      <option value="chiusa">Chiusa (in archivio)</option>
+    </select>
     <label>Priorità</label>
     <select id="m-prio"><option value="0">Normale</option><option value="1">Alta</option></select>
     <label>Note</label><textarea id="m-note" rows="2"></textarea>
@@ -174,6 +223,15 @@ const COLORI = {
 const colore = (nome) => COLORI[nome] || COLORI.grigio;
 
 let AREE = [], VOCI = [], vociAperte = new Set();
+
+// ---------- stati: da fare -> in lavorazione -> chiusa ----------
+const STATI = ['da_fare', 'in_corso', 'chiusa'];
+const NOME_STATO = { da_fare: 'Da fare', in_corso: 'In lavorazione', chiusa: 'Chiusa' };
+const SIMBOLO_STATO = { da_fare: '', in_corso: '\u2026', chiusa: '\u2713' };
+// 'fatto' e' il vecchio valore: lo leggiamo come 'chiusa' senza toccare i dati
+const statoDi = (v) => (v.stato === 'fatto' ? 'chiusa' : (STATI.includes(v.stato) ? v.stato : 'da_fare'));
+const eChiusa = (v) => statoDi(v) === 'chiusa';
+const prossimoStato = (v) => STATI[(STATI.indexOf(statoDi(v)) + 1) % STATI.length];
 
 // ---------- auth ----------
 const $ = (id) => document.getElementById(id);
@@ -210,7 +268,7 @@ async function carica() {
 // ---------- chip scadenza ----------
 function chip(v) {
   if (!v.scadenza) return '';
-  if (v.stato === 'fatto') return '';           // voce chiusa: chip spento
+  if (eChiusa(v)) return '';                    // voce chiusa: chip spento
   const oggi = new Date(); oggi.setHours(0,0,0,0);
   const s = new Date(v.scadenza + 'T00:00:00');
   const gg = Math.round((s - oggi) / 86400000);
@@ -227,38 +285,53 @@ const esc = (t) => (t || '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;',
 
 function render() {
   $('oggi').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-  const mostraFatti = $('mostra-fatti').checked;
+  const mostraChiuse = $('mostra-fatti').checked;
+
+  const nChiuseTot = VOCI.filter(eChiusa).length;
+  $('conta-fatti').textContent = nChiuseTot ? `(${nChiuseTot})` : '';
 
   $('pills').innerHTML = AREE.map((a) => {
-    const n = VOCI.filter((v) => v.area_id === a.id && v.stato !== 'fatto').length;
+    const n = VOCI.filter((v) => v.area_id === a.id && !eChiusa(v)).length;
     return `<span class="pill" style="background:${colore(a.colore).pieno}">${esc(a.nome)} <span class="n">${n}</span></span>`;
   }).join('');
 
   $('aree').innerHTML = AREE.map((a) => {
     const c = colore(a.colore).pieno;
     let voci = VOCI.filter((v) => v.area_id === a.id);
-    if (!mostraFatti) voci = voci.filter((v) => v.stato !== 'fatto');
-    voci.sort((x, y) => ((x.stato === 'fatto') - (y.stato === 'fatto'))
+    const nDaFare = voci.filter((v) => statoDi(v) === 'da_fare').length;
+    const nInCorso = voci.filter((v) => statoDi(v) === 'in_corso').length;
+    const nChiuse = voci.filter(eChiusa).length;
+    if (!mostraChiuse) voci = voci.filter((v) => !eChiusa(v));
+    voci.sort((x, y) => (eChiusa(x) - eChiusa(y))
       || ((x.scadenza || '9999-12-31').localeCompare(y.scadenza || '9999-12-31')));
 
-    const righe = voci.length ? voci.map((v) => `
-      <div class="riga ${v.stato === 'fatto' ? 'fatto' : ''}" data-id="${v.id}">
-        <button class="spunta" data-toggle="${v.id}" title="Segna fatto">✓</button>
+    const conta = [
+      `${nDaFare} da fare`,
+      nInCorso ? `${nInCorso} in lavorazione` : '',
+      nChiuse ? `${nChiuse} ${nChiuse === 1 ? 'chiusa' : 'chiuse'}` : '',
+    ].filter(Boolean).join(' \u00b7 ');
+
+    const righe = voci.length ? voci.map((v) => {
+      const st = statoDi(v);
+      const cls = st === 'chiusa' ? 'chiusa' : (st === 'in_corso' ? 'in-corso' : '');
+      return `
+      <div class="riga ${cls}" data-id="${v.id}">
+        <button class="stato-btn" data-toggle="${v.id}" title="${NOME_STATO[st]} \u2192 tocca per: ${NOME_STATO[prossimoStato(v)]}">${SIMBOLO_STATO[st]}</button>
         <span class="dot" style="background:${c}"></span>
         <div class="corpo">
           <div>${v.priorita > 0 ? '<span class="prio">⚑</span>' : ''}<span class="cliente">${esc(v.cliente)}</span>${v.gruppo ? `<span class="gruppo-tag">${esc(v.gruppo)}</span>` : ''}</div>
-          <div class="testo">${esc(v.cosa_fare)}</div>
+          <div class="testo">${esc(v.cosa_fare)}${st === 'in_corso' ? '<span class="tag-lav">in lavorazione</span>' : ''}</div>
           ${v.note ? `<div class="note">${esc(v.note)}</div>` : ''}
         </div>
         ${chip(v)}
-      </div>`).join('')
-      : '<div class="vuota">Niente in sospeso</div>';
+      </div>`; }).join('')
+      : `<div class="vuota">Niente in sospeso${nChiuse && !mostraChiuse ? ` \u00b7 ${nChiuse} ${nChiuse === 1 ? 'chiusa nascosta' : 'chiuse nascoste'} in archivio` : ''}</div>`;
 
     const aperto = vociAperte.has(a.id);
     return `
       <div class="card" style="border-left-color:${c}">
         <div class="card-head" style="background:${c}">
-          <span>${esc(a.nome)}</span>
+          <span class="titolo">${esc(a.nome)}<span class="conta">${conta}</span></span>
           <button class="add-btn" data-add="${a.id}">${aperto ? 'chiudi' : '+ aggiungi'}</button>
         </div>
         ${righe}
@@ -281,11 +354,35 @@ function render() {
     render();
   });
   document.querySelectorAll('[data-save]').forEach((b) => b.onclick = () => aggiungi(b.dataset.save));
-  document.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); toggleFatto(b.dataset.toggle); });
+  document.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); avanzaStato(b.dataset.toggle); });
   document.querySelectorAll('.riga').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
 }
 
-$('mostra-fatti').onchange = render;
+try { $('mostra-fatti').checked = localStorage.getItem('mostra-fatti') === '1'; } catch (e) {}
+$('mostra-fatti').onchange = () => {
+  try { localStorage.setItem('mostra-fatti', $('mostra-fatti').checked ? '1' : '0'); } catch (e) {}
+  render();
+};
+
+// ---------- toast con annulla ----------
+let toastTimer = null, toastUndo = null;
+function mostraToast(testo, onUndo) {
+  clearTimeout(toastTimer);
+  toastUndo = onUndo;
+  $('toast-testo').textContent = testo;
+  $('toast').style.display = 'flex';
+  toastTimer = setTimeout(nascondiToast, 9000);
+}
+function nascondiToast() {
+  clearTimeout(toastTimer);
+  toastUndo = null;
+  $('toast').style.display = 'none';
+}
+$('toast-undo').onclick = () => {
+  const undo = toastUndo;
+  nascondiToast();
+  if (undo) undo();
+};
 
 // ---------- azioni ----------
 async function aggiungi(areaId) {
@@ -300,10 +397,26 @@ async function aggiungi(areaId) {
   carica();
 }
 
-async function toggleFatto(id) {
+async function avanzaStato(id) {
   const v = VOCI.find((x) => x.id === id);
-  const { error } = await sb.from('voci').update({ stato: v.stato === 'fatto' ? 'da_fare' : 'fatto' }).eq('id', id);
-  if (error) alert('Errore: ' + error.message); else carica();
+  if (!v) return;
+  const precedente = statoDi(v);
+  const nuovo = prossimoStato(v);
+  const nome = v.cliente || 'Voce';
+  if (!(await impostaStato(id, nuovo))) return;
+  const messaggi = {
+    in_corso: `${nome} \u2014 in lavorazione. Resta in lista.`,
+    chiusa: `${nome} \u2014 chiusa e spostata in archivio: non e\u0300 stata eliminata.`,
+    da_fare: `${nome} \u2014 di nuovo tra le voci da fare.`,
+  };
+  mostraToast(messaggi[nuovo], () => impostaStato(id, precedente));
+}
+
+async function impostaStato(id, stato) {
+  const { error } = await sb.from('voci').update({ stato }).eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return false; }
+  await carica();
+  return true;
 }
 
 // ---------- modal ----------
@@ -316,6 +429,7 @@ function apriModal(id) {
   $('m-cosa').value = v.cosa_fare || '';
   $('m-scadenza').value = v.scadenza || '';
   $('m-gruppo').value = v.gruppo || '';
+  $('m-stato').value = statoDi(v);
   $('m-prio').value = String(v.priorita || 0);
   $('m-note').value = v.note || '';
   $('overlay').style.display = 'flex';
@@ -328,6 +442,7 @@ $('m-salva').onclick = async () => {
     cosa_fare: $('m-cosa').value.trim(),
     scadenza: $('m-scadenza').value || null,
     gruppo: $('m-gruppo').value.trim() || null,
+    stato: $('m-stato').value,
     priorita: Number($('m-prio').value),
     note: $('m-note').value.trim() || null,
   }).eq('id', modalId);
@@ -335,7 +450,8 @@ $('m-salva').onclick = async () => {
   if (error) alert('Errore: ' + error.message); else carica();
 };
 $('m-elimina').onclick = async () => {
-  if (!confirm('Eliminare questa voce?')) return;
+  const v = VOCI.find((x) => x.id === modalId);
+  if (!confirm(`Eliminare DEFINITIVAMENTE la voce${v && v.cliente ? ' di ' + v.cliente : ''}?\n\nQuesta azione non si puo\u0300 annullare. Per archiviarla senza perderla mettila su \u201cChiusa\u201d con il quadratino \u2713.`)) return;
   const { error } = await sb.from('voci').delete().eq('id', modalId);
   $('overlay').style.display = 'none';
   if (error) alert('Errore: ' + error.message); else carica();
