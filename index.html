@@ -97,6 +97,36 @@
   .riga.chiusa .stato-btn { background: var(--ink-soft); border-color: var(--ink-soft); color: #fff; }
   .legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink-soft); font-size: .78rem; font-weight: 400; padding-left: 27px; }
   .legenda b { font-weight: 700; color: var(--ink); }
+  /* ---- Sine Limes 2: schede e card ---- */
+  .schede { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .scheda-tab {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px;
+    border: 1px solid var(--line); border-top: 3px solid var(--tc); background: var(--paper);
+    color: var(--ink-soft); font-size: .82rem; font-weight: 600; cursor: pointer;
+  }
+  .scheda-tab .n { background: var(--line); border-radius: 999px; padding: 0 7px; font-size: .78rem; }
+  .scheda-tab.attiva { background: var(--tc); border-color: var(--tc); color: #fff; }
+  .scheda-tab.attiva .n { background: rgba(255,255,255,.28); }
+  .griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; padding: 12px; }
+  .voce-card {
+    background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--tc);
+    border-radius: 10px; padding: 10px 11px; cursor: pointer; min-width: 0;
+  }
+  .voce-card.chiusa { opacity: .5; }
+  .voce-card .vc-testa { display: flex; align-items: flex-start; gap: 8px; }
+  .voce-card .cliente { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .voce-card .note { font-size: .8rem; color: var(--ink-soft); margin-top: 4px; overflow-wrap: anywhere; }
+  .voce-card .chip { display: inline-block; margin-top: 6px; }
+  .vc-spunta {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line);
+    background: #fff; cursor: pointer; padding: 0; font-size: 13px; line-height: 18px; text-align: center;
+    font-weight: 700; color: transparent; margin-top: 1px;
+  }
+  .vc-spunta.si { background: var(--tc); border-color: var(--tc); color: #fff; }
+  .vc-attesa {
+    display: inline-block; font-size: .7rem; font-weight: 600; margin-top: 5px;
+    color: var(--ambra); background: var(--ambra-bg); border-radius: 6px; padding: 0 5px;
+  }
   .vuota { padding: 14px; font-size: .85rem; color: var(--ink-soft); font-style: italic; }
 
   .quick { padding: 12px 14px; border-top: 1px solid var(--line); display: none; background: var(--paper); }
@@ -219,6 +249,7 @@ const COLORI = {
   rosso:   { pieno: '#b23b3b' }, azzurro: { pieno: '#2f7ab0' },
   giallo:  { pieno: '#b8901a' }, verde:   { pieno: '#3f8f6b' },
   prugna:  { pieno: '#7d5a9e' }, grigio:  { pieno: '#6c655a' },
+  arancione: { pieno: '#c2703d' },
 };
 const colore = (nome) => COLORI[nome] || COLORI.grigio;
 
@@ -232,6 +263,57 @@ const SIMBOLO_STATO = { da_fare: '', in_corso: '\u2026', chiusa: '\u2713' };
 const statoDi = (v) => (v.stato === 'fatto' ? 'chiusa' : (STATI.includes(v.stato) ? v.stato : 'da_fare'));
 const eChiusa = (v) => statoDi(v) === 'chiusa';
 const prossimoStato = (v) => STATI[(STATI.indexOf(statoDi(v)) + 1) % STATI.length];
+
+// ---------- ordine alfabetico fisso ----------
+// Unico criterio di ordinamento, per tutte le aree: il cliente. Lo stato, la scadenza e la data
+// di modifica non spostano mai una voce.
+const perCliente = (a, b) => (a.cliente || '').localeCompare(b.cliente || '', 'it') || String(a.id).localeCompare(String(b.id));
+
+// ---------- Sine Limes 2: schede per gruppo ----------
+const AREA_SL2 = 'Sine Limes 2';
+const SCHEDE_SL2 = [
+  { id: 'pagati',     etichetta: 'Pagati',                gruppo: 'SL2 \u00b7 1 Pagato \u2013 pronta',                              colore: COLORI.verde.pieno,   campo: 'pagato' },
+  { id: 'inviato',    etichetta: 'Preventivo inviato',    gruppo: 'SL2 \u00b7 2 Preventivo inviato \u2013 attesa pagamento',        colore: COLORI.azzurro.pieno, campo: 'preventivo_inviato' },
+  { id: 'da-inviare', etichetta: 'Preventivo da inviare', gruppo: 'SL2 \u00b7 3 Preventivo da inviare',                             colore: COLORI.giallo.pieno,  campo: 'preventivo_inviato' },
+  { id: 'ricordare',  etichetta: 'Da ricordare',          gruppo: 'SL2 \u00b7 4 In sospeso \u2013 verificare',                      colore: COLORI.grigio.pieno,  campo: null },
+];
+const GRUPPO_SL2_ESCLUSO = 'SL2 \u00b7 5 Non fa domanda';
+let schedaSL2 = 'pagati';
+const eSL2 = (a) => (a.nome || '').trim() === AREA_SL2;
+// Una voce senza gruppo riconosciuto finisce in "Da ricordare", cosi' non sparisce dalla vista
+function schedaDi(v) {
+  if (v.gruppo === GRUPPO_SL2_ESCLUSO) return null;
+  const s = SCHEDE_SL2.find((x) => x.gruppo === v.gruppo);
+  return s ? s.id : 'ricordare';
+}
+// La spunta e' gia' disegnata sulla card: il prefisso della nota sarebbe un doppione
+const notaPulita = (t) => (t || '').replace(/^\s*(?:\u2714\ufe0f?\s*Pagato\.|\u2610\s*Preventivo da inviare\.)\s*/, '');
+
+function cardSL2(v, s) {
+  const attesa = (s.id === 'inviato' && v.pagato !== true) || (s.id === 'da-inviare' && v.pagato === false);
+  const si = s.campo ? v[s.campo] === true : false;
+  const nota = notaPulita(v.note);
+  return `
+    <div class="voce-card ${eChiusa(v) ? 'chiusa' : ''}" data-id="${v.id}" style="--tc:${s.colore}">
+      <div class="vc-testa">
+        ${s.campo ? `<button class="vc-spunta ${si ? 'si' : ''}" data-spunta="${v.id}" data-campo="${s.campo}" title="${si ? 'Togli la spunta' : 'Metti la spunta'}">\u2714\ufe0e</button>` : ''}
+        <span class="cliente">${esc(v.cliente)}</span>
+      </div>
+      ${attesa ? '<span class="vc-attesa">In attesa di pagamento</span>' : ''}
+      ${nota ? `<div class="note">${esc(nota)}</div>` : ''}
+      ${chip(v)}
+    </div>`;
+}
+
+function corpoSL2(voci) {
+  const perScheda = (id) => voci.filter((v) => schedaDi(v) === id);
+  const attiva = SCHEDE_SL2.find((s) => s.id === schedaSL2) || SCHEDE_SL2[0];
+  const tabs = SCHEDE_SL2.map((s) => `<button class="scheda-tab ${s.id === attiva.id ? 'attiva' : ''}" data-scheda="${s.id}" style="--tc:${s.colore}">${s.etichetta} <span class="n">${perScheda(s.id).length}</span></button>`).join('');
+  const mie = perScheda(attiva.id);
+  return `<div class="schede">${tabs}</div>` + (mie.length
+    ? `<div class="griglia">${mie.map((v) => cardSL2(v, attiva)).join('')}</div>`
+    : '<div class="vuota">Nessuna voce in questa scheda</div>');
+}
 
 // ---------- auth ----------
 const $ = (id) => document.getElementById(id);
@@ -258,10 +340,10 @@ $('logout').onclick = (e) => { e.preventDefault(); sb.auth.signOut(); };
 async function carica() {
   const [ra, rv] = await Promise.all([
     sb.from('aree').select('*').order('ordine'),
-    sb.from('voci').select('*').order('scadenza', { ascending: true, nullsFirst: false }),
+    sb.from('voci').select('*').order('cliente', { ascending: true }),
   ]);
   if (ra.error || rv.error) { alert('Errore di caricamento: ' + (ra.error || rv.error).message); return; }
-  AREE = ra.data; VOCI = rv.data;
+  AREE = ra.data; VOCI = rv.data.sort(perCliente);
   render();
 }
 
@@ -302,8 +384,6 @@ function render() {
     const nInCorso = voci.filter((v) => statoDi(v) === 'in_corso').length;
     const nChiuse = voci.filter(eChiusa).length;
     if (!mostraChiuse) voci = voci.filter((v) => !eChiusa(v));
-    voci.sort((x, y) => (eChiusa(x) - eChiusa(y))
-      || ((x.scadenza || '9999-12-31').localeCompare(y.scadenza || '9999-12-31')));
 
     const conta = [
       `${nDaFare} da fare`,
@@ -311,7 +391,7 @@ function render() {
       nChiuse ? `${nChiuse} ${nChiuse === 1 ? 'chiusa' : 'chiuse'}` : '',
     ].filter(Boolean).join(' \u00b7 ');
 
-    const righe = voci.length ? voci.map((v) => {
+    const righe = eSL2(a) ? corpoSL2(voci) : voci.length ? voci.map((v) => {
       const st = statoDi(v);
       const cls = st === 'chiusa' ? 'chiusa' : (st === 'in_corso' ? 'in-corso' : '');
       return `
@@ -355,7 +435,9 @@ function render() {
   });
   document.querySelectorAll('[data-save]').forEach((b) => b.onclick = () => aggiungi(b.dataset.save));
   document.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); avanzaStato(b.dataset.toggle); });
-  document.querySelectorAll('.riga').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
+  document.querySelectorAll('[data-scheda]').forEach((b) => b.onclick = () => { schedaSL2 = b.dataset.scheda; render(); });
+  document.querySelectorAll('[data-spunta]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); commutaSpunta(b.dataset.spunta, b.dataset.campo); });
+  document.querySelectorAll('.riga, .voce-card').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
 }
 
 try { $('mostra-fatti').checked = localStorage.getItem('mostra-fatti') === '1'; } catch (e) {}
@@ -391,10 +473,37 @@ async function aggiungi(areaId) {
   const nota = $(`q-nota-${areaId}`).value.trim() || null;
   const data = $(`q-data-${areaId}`).value || null;
   if (!cliente && !cosa) return;
-  const { error } = await sb.from('voci').insert({ area_id: areaId, cliente, cosa_fare: cosa, scadenza: data, note: nota });
+  const nuova = { area_id: areaId, cliente, cosa_fare: cosa, scadenza: data, note: nota };
+  // In Sine Limes 2 la voce nasce nella scheda aperta, altrimenti non avrebbe un posto dove comparire
+  const area = AREE.find((a) => a.id === areaId);
+  if (area && eSL2(area)) {
+    const s = SCHEDE_SL2.find((x) => x.id === schedaSL2) || SCHEDE_SL2[0];
+    nuova.gruppo = s.gruppo;
+    if (s.id === 'pagati') nuova.pagato = true;
+    if (s.id === 'inviato') { nuova.preventivo_inviato = true; nuova.pagato = false; }
+  }
+  const { data: riga, error } = await sb.from('voci').insert(nuova).select().single();
   if (error) { alert('Errore: ' + error.message); return; }
   vociAperte.delete(areaId);
-  carica();
+  VOCI.push(riga);
+  VOCI.sort(perCliente);
+  render();
+}
+
+// Aggiorna la voce su Supabase e poi sul posto nella lista: la posizione non cambia
+async function aggiornaVoce(id, campi) {
+  const { error } = await sb.from('voci').update(campi).eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return false; }
+  const v = VOCI.find((x) => x.id === id);
+  if (v) Object.assign(v, campi);
+  render();
+  return true;
+}
+
+function commutaSpunta(id, campo) {
+  const v = VOCI.find((x) => x.id === id);
+  if (!v || !['pagato', 'preventivo_inviato'].includes(campo)) return;
+  return aggiornaVoce(id, { [campo]: v[campo] !== true });
 }
 
 async function avanzaStato(id) {
@@ -412,12 +521,7 @@ async function avanzaStato(id) {
   mostraToast(messaggi[nuovo], () => impostaStato(id, precedente));
 }
 
-async function impostaStato(id, stato) {
-  const { error } = await sb.from('voci').update({ stato }).eq('id', id);
-  if (error) { alert('Errore: ' + error.message); return false; }
-  await carica();
-  return true;
-}
+const impostaStato = (id, stato) => aggiornaVoce(id, { stato });
 
 // ---------- modal ----------
 let modalId = null;
@@ -437,7 +541,8 @@ function apriModal(id) {
 $('m-chiudi').onclick = () => { $('overlay').style.display = 'none'; };
 $('overlay').onclick = (e) => { if (e.target.id === 'overlay') $('overlay').style.display = 'none'; };
 $('m-salva').onclick = async () => {
-  const { error } = await sb.from('voci').update({
+  $('overlay').style.display = 'none';
+  await aggiornaVoce(modalId, {
     cliente: $('m-cliente').value.trim(),
     cosa_fare: $('m-cosa').value.trim(),
     scadenza: $('m-scadenza').value || null,
@@ -445,16 +550,16 @@ $('m-salva').onclick = async () => {
     stato: $('m-stato').value,
     priorita: Number($('m-prio').value),
     note: $('m-note').value.trim() || null,
-  }).eq('id', modalId);
-  $('overlay').style.display = 'none';
-  if (error) alert('Errore: ' + error.message); else carica();
+  });
 };
 $('m-elimina').onclick = async () => {
   const v = VOCI.find((x) => x.id === modalId);
   if (!confirm(`Eliminare DEFINITIVAMENTE la voce${v && v.cliente ? ' di ' + v.cliente : ''}?\n\nQuesta azione non si puo\u0300 annullare. Per archiviarla senza perderla mettila su \u201cChiusa\u201d con il quadratino \u2713.`)) return;
   const { error } = await sb.from('voci').delete().eq('id', modalId);
   $('overlay').style.display = 'none';
-  if (error) alert('Errore: ' + error.message); else carica();
+  if (error) { alert('Errore: ' + error.message); return; }
+  VOCI = VOCI.filter((x) => x.id !== modalId);
+  render();
 };
 </script>
 </body>
