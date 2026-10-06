@@ -43,10 +43,12 @@
   .pill {
     display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
     border-radius: 999px; font-size: .82rem; font-weight: 600; color: #fff;
+    border: 0; font-family: inherit; cursor: pointer;
   }
   .pill .n { background: rgba(255,255,255,.28); border-radius: 999px; padding: 0 7px; font-size: .8rem; }
 
   .card {
+    scroll-margin-top: 12px;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     margin-bottom: 16px; overflow: hidden; border-left-width: 5px;
   }
@@ -410,7 +412,7 @@ function render() {
 
   $('pills').innerHTML = AREE.map((a) => {
     const n = VOCI.filter((v) => v.area_id === a.id && !eChiusa(v)).length;
-    return `<span class="pill" style="background:${colore(a.colore).pieno}">${esc(a.nome)} <span class="n">${n}</span></span>`;
+    return `<button class="pill" data-vai="${a.id}" style="background:${colore(a.colore).pieno}">${esc(a.nome)} <span class="n">${n}</span></button>`;
   }).join('');
 
   $('aree').innerHTML = AREE.map((a) => {
@@ -431,7 +433,7 @@ function render() {
 
     const aperto = vociAperte.has(a.id);
     return `
-      <div class="card" style="border-left-color:${c}">
+      <div class="card" id="area-${a.id}" style="border-left-color:${c}">
         <div class="card-head" style="background:${c}">
           <span class="titolo">${esc(a.nome)}<span class="conta">${conta}</span></span>
           <button class="add-btn" data-add="${a.id}">${aperto ? 'chiudi' : '+ aggiungi'}</button>
@@ -450,6 +452,10 @@ function render() {
   }).join('');
 
   // eventi
+  document.querySelectorAll('[data-vai]').forEach((b) => b.onclick = () => {
+    const el = $('area-' + b.dataset.vai);
+    if (el) el.scrollIntoView({ block: 'start' });
+  });
   document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
     const id = b.dataset.add;
     vociAperte.has(id) ? vociAperte.delete(id) : vociAperte.add(id);
