@@ -114,6 +114,8 @@
   }
   .voce-card.chiusa { opacity: .5; }
   .voce-card .cliente { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .voce-card .prio { color: var(--rosso-vivo); font-weight: 700; margin-right: 3px; }
+  .voce-card .testo { font-size: .88rem; margin-top: 3px; overflow-wrap: anywhere; }
   .voce-card .note { font-size: .8rem; color: var(--ink-soft); margin-top: 4px; overflow-wrap: anywhere; }
   .voce-card .chip { display: inline-block; margin-top: 6px; }
   .vc-spunte { display: flex; flex-direction: column; gap: 1px; margin-top: 7px; }
@@ -204,8 +206,7 @@
   <div class="viewbar">
     <label><input type="checkbox" id="mostra-fatti"> Mostra anche le chiuse <span id="conta-fatti"></span></label>
     <div class="legenda">
-      <span>Tocca il quadratino per cambiare stato:</span>
-      <span><b>☐ Da fare</b> → <b>… In lavorazione</b> → <b>✓ Chiusa</b></span>
+      <span>Tocca una spunta per metterla o toglierla. Tocca la card per modificarla o chiuderla</span>
       <span>Solo le chiuse escono dalla lista, e restano in archivio: niente viene mai cancellato.</span>
     </div>
   </div>
@@ -263,7 +264,6 @@ const SIMBOLO_STATO = { da_fare: '', in_corso: '\u2026', chiusa: '\u2713' };
 // 'fatto' e' il vecchio valore: lo leggiamo come 'chiusa' senza toccare i dati
 const statoDi = (v) => (v.stato === 'fatto' ? 'chiusa' : (STATI.includes(v.stato) ? v.stato : 'da_fare'));
 const eChiusa = (v) => statoDi(v) === 'chiusa';
-const prossimoStato = (v) => STATI[(STATI.indexOf(statoDi(v)) + 1) % STATI.length];
 
 // ---------- ordine alfabetico fisso ----------
 // Unico criterio di ordinamento, per tutte le aree: il cliente. Lo stato, la scadenza e la data
@@ -281,7 +281,6 @@ const SCHEDE_SL2 = [
   { id: 'inviate',    etichetta: 'Inviate',               gruppo: null,                                                     colore: COLORI.prugna.pieno },
 ];
 const GRUPPO_SL2_ESCLUSO = 'SL2 \u00b7 5 Non fa domanda';
-let schedaSL2 = 'pagati';
 const eSL2 = (a) => (a.nome || '').trim() === AREA_SL2;
 // Scheda di partenza, decisa dal gruppo. Una voce senza gruppo riconosciuto finisce in
 // "Da ricordare", cosi' non sparisce dalla vista
@@ -296,33 +295,59 @@ function schedaDi(v) {
 // La spunta e' gia' disegnata sulla card: il prefisso della nota sarebbe un doppione
 const notaPulita = (t) => (t || '').replace(/^\s*(?:\u2714\ufe0f?\s*Pagato\.|\u2610\s*Preventivo da inviare\.)\s*/, '');
 
+// ---------- altre aree: una scheda per ogni stato della pratica ----------
+const SCHEDE_STATO = [
+  { id: 'da-inviare',  etichetta: 'Preventivo da inviare', colore: COLORI.giallo.pieno },
+  { id: 'inviato',     etichetta: 'Preventivo inviato',    colore: COLORI.azzurro.pieno },
+  { id: 'pagati',      etichetta: 'Pagati',                colore: COLORI.verde.pieno },
+  { id: 'lavorazione', etichetta: 'In lavorazione',        colore: COLORI.arancione.pieno },
+  { id: 'inviate',     etichetta: 'Inviate',               colore: COLORI.prugna.pieno },
+];
+// La card sta nella scheda dello stato piu' avanzato tra quelli spuntati
+function schedaStato(v) {
+  if (v.pratica_inviata === true) return 'inviate';
+  if (statoDi(v) === 'in_corso') return 'lavorazione';
+  if (v.pagato === true) return 'pagati';
+  if (v.preventivo_inviato === true) return 'inviato';
+  return 'da-inviare';
+}
+
+const areaDi = (v) => AREE.find((a) => a.id === v.area_id);
+const schedeDi = (a) => (a && eSL2(a) ? SCHEDE_SL2 : SCHEDE_STATO);
+const schedaVoce = (v, a) => (a && eSL2(a) ? schedaDi(v) : schedaStato(v));
+// Scheda aperta in ogni area: se non e' stata scelta, la prima
+const schedaAperta = {};
+const schedaAttiva = (a) => schedeDi(a).find((s) => s.id === schedaAperta[a.id]) || schedeDi(a)[0];
+
 // Le quattro spunte di ogni pratica. "In lavorazione" non ha un campo suo: e' lo stato in_corso
-const SPUNTE_SL2 = [
+const SPUNTE = [
   { campo: 'pagato',             etichetta: 'Pagato',             attiva: (v) => v.pagato === true },
   { campo: 'preventivo_inviato', etichetta: 'Preventivo inviato', attiva: (v) => v.preventivo_inviato === true },
   { campo: 'lavorazione',        etichetta: 'In lavorazione',     attiva: (v) => statoDi(v) === 'in_corso' },
   { campo: 'pratica_inviata',    etichetta: 'Pratica inviata',    attiva: (v) => v.pratica_inviata === true },
 ];
 
-function cardSL2(v, s) {
-  const nota = notaPulita(v.note);
-  const spunte = SPUNTE_SL2.map((x) => `<button class="vc-riga ${x.attiva(v) ? 'si' : ''}" data-spunta="${v.id}" data-campo="${x.campo}"><span class="vc-spunta">\u2714\ufe0e</span>${x.etichetta}</button>`).join('');
+function cardVoce(v, s, a) {
+  const sl2 = eSL2(a);
+  const nota = sl2 ? notaPulita(v.note) : (v.note || '');
+  const spunte = SPUNTE.map((x) => `<button class="vc-riga ${x.attiva(v) ? 'si' : ''}" data-spunta="${v.id}" data-campo="${x.campo}"><span class="vc-spunta">\u2714\ufe0e</span>${x.etichetta}</button>`).join('');
   return `
     <div class="voce-card ${eChiusa(v) ? 'chiusa' : ''}" data-id="${v.id}" style="--tc:${s.colore}">
-      <span class="cliente">${esc(v.cliente)}</span>
+      ${!sl2 && v.priorita > 0 ? '<span class="prio">\u2691</span>' : ''}<span class="cliente">${esc(v.cliente)}</span>
+      ${!sl2 && v.cosa_fare ? `<div class="testo">${esc(v.cosa_fare)}</div>` : ''}
       ${nota ? `<div class="note">${esc(nota)}</div>` : ''}
       ${chip(v)}
       <div class="vc-spunte">${spunte}</div>
     </div>`;
 }
 
-function corpoSL2(voci) {
-  const perScheda = (id) => voci.filter((v) => schedaDi(v) === id);
-  const attiva = SCHEDE_SL2.find((s) => s.id === schedaSL2) || SCHEDE_SL2[0];
-  const tabs = SCHEDE_SL2.map((s) => `<button class="scheda-tab ${s.id === attiva.id ? 'attiva' : ''}" data-scheda="${s.id}" style="--tc:${s.colore}">${s.etichetta} <span class="n">${perScheda(s.id).length}</span></button>`).join('');
+function corpoSchede(a, voci) {
+  const perScheda = (id) => voci.filter((v) => schedaVoce(v, a) === id);
+  const attiva = schedaAttiva(a);
+  const tabs = schedeDi(a).map((s) => `<button class="scheda-tab ${s.id === attiva.id ? 'attiva' : ''}" data-scheda="${s.id}" data-area="${a.id}" style="--tc:${s.colore}">${s.etichetta} <span class="n">${perScheda(s.id).length}</span></button>`).join('');
   const mie = perScheda(attiva.id);
   return `<div class="schede">${tabs}</div>` + (mie.length
-    ? `<div class="griglia">${mie.map((v) => cardSL2(v, attiva)).join('')}</div>`
+    ? `<div class="griglia">${mie.map((v) => cardVoce(v, attiva, a)).join('')}</div>`
     : '<div class="vuota">Nessuna voce in questa scheda</div>');
 }
 
@@ -402,21 +427,7 @@ function render() {
       nChiuse ? `${nChiuse} ${nChiuse === 1 ? 'chiusa' : 'chiuse'}` : '',
     ].filter(Boolean).join(' \u00b7 ');
 
-    const righe = eSL2(a) ? corpoSL2(voci) : voci.length ? voci.map((v) => {
-      const st = statoDi(v);
-      const cls = st === 'chiusa' ? 'chiusa' : (st === 'in_corso' ? 'in-corso' : '');
-      return `
-      <div class="riga ${cls}" data-id="${v.id}">
-        <button class="stato-btn" data-toggle="${v.id}" title="${NOME_STATO[st]} \u2192 tocca per: ${NOME_STATO[prossimoStato(v)]}">${SIMBOLO_STATO[st]}</button>
-        <span class="dot" style="background:${c}"></span>
-        <div class="corpo">
-          <div>${v.priorita > 0 ? '<span class="prio">⚑</span>' : ''}<span class="cliente">${esc(v.cliente)}</span>${v.gruppo ? `<span class="gruppo-tag">${esc(v.gruppo)}</span>` : ''}</div>
-          <div class="testo">${esc(v.cosa_fare)}${st === 'in_corso' ? '<span class="tag-lav">in lavorazione</span>' : ''}</div>
-          ${v.note ? `<div class="note">${esc(v.note)}</div>` : ''}
-        </div>
-        ${chip(v)}
-      </div>`; }).join('')
-      : `<div class="vuota">Niente in sospeso${nChiuse && !mostraChiuse ? ` \u00b7 ${nChiuse} ${nChiuse === 1 ? 'chiusa nascosta' : 'chiuse nascoste'} in archivio` : ''}</div>`;
+    const righe = corpoSchede(a, voci);
 
     const aperto = vociAperte.has(a.id);
     return `
@@ -445,10 +456,9 @@ function render() {
     render();
   });
   document.querySelectorAll('[data-save]').forEach((b) => b.onclick = () => aggiungi(b.dataset.save));
-  document.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); avanzaStato(b.dataset.toggle); });
-  document.querySelectorAll('[data-scheda]').forEach((b) => b.onclick = () => { schedaSL2 = b.dataset.scheda; render(); });
+  document.querySelectorAll('[data-scheda]').forEach((b) => b.onclick = () => { schedaAperta[b.dataset.area] = b.dataset.scheda; render(); });
   document.querySelectorAll('[data-spunta]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); commutaSpunta(b.dataset.spunta, b.dataset.campo); });
-  document.querySelectorAll('.riga, .voce-card').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
+  document.querySelectorAll('.voce-card').forEach((r) => r.onclick = () => apriModal(r.dataset.id));
 }
 
 try { $('mostra-fatti').checked = localStorage.getItem('mostra-fatti') === '1'; } catch (e) {}
@@ -485,10 +495,16 @@ async function aggiungi(areaId) {
   const data = $(`q-data-${areaId}`).value || null;
   if (!cliente && !cosa) return;
   const nuova = { area_id: areaId, cliente, cosa_fare: cosa, scadenza: data, note: nota };
-  // In Sine Limes 2 la voce nasce nella scheda aperta, altrimenti non avrebbe un posto dove comparire
+  // La voce nasce nella scheda aperta, cosi' resta sotto gli occhi dopo l'aggiunta
   const area = AREE.find((a) => a.id === areaId);
+  const s = area ? schedaAttiva(area) : null;
+  if (area && !eSL2(area)) {
+    if (s.id === 'inviato') nuova.preventivo_inviato = true;
+    if (s.id === 'pagati') nuova.pagato = true;
+    if (s.id === 'lavorazione') nuova.stato = 'in_corso';
+    if (s.id === 'inviate') nuova.pratica_inviata = true;
+  }
   if (area && eSL2(area)) {
-    const s = SCHEDE_SL2.find((x) => x.id === schedaSL2) || SCHEDE_SL2[0];
     nuova.gruppo = s.gruppo || SCHEDE_SL2.find((x) => x.id === 'ricordare').gruppo;
     if (s.id === 'pagati') nuova.pagato = true;
     if (s.id === 'inviato') nuova.preventivo_inviato = true;
@@ -514,36 +530,22 @@ async function aggiornaVoce(id, campi) {
 
 async function commutaSpunta(id, campo) {
   const v = VOCI.find((x) => x.id === id);
-  const spunta = SPUNTE_SL2.find((x) => x.campo === campo);
+  const spunta = SPUNTE.find((x) => x.campo === campo);
   if (!v || !spunta) return;
+  const a = areaDi(v);
   const era = spunta.attiva(v);
-  if (campo === 'lavorazione') return aggiornaVoce(id, { stato: era ? 'da_fare' : 'in_corso' });
-  if (!(await aggiornaVoce(id, { [campo]: !era }))) return;
-  // E' l'unica spunta che sposta la card: lo si dice, e si puo' tornare indietro
-  if (campo === 'pratica_inviata') {
-    const nome = v.cliente || 'Voce';
-    const dove = SCHEDE_SL2.find((x) => x.id === schedaOrigine(v)).etichetta;
-    mostraToast(era ? `${nome} \u2014 tornata in \u201c${dove}\u201d.` : `${nome} \u2014 spostata in \u201cInviate\u201d.`,
-      () => aggiornaVoce(id, { pratica_inviata: era }));
+  const [prima, dopo] = campo === 'lavorazione'
+    ? [{ stato: v.stato }, { stato: era ? 'da_fare' : 'in_corso' }]
+    : [{ [campo]: v[campo] }, { [campo]: !era }];
+  const schedaPrima = schedaVoce(v, a);
+  if (!(await aggiornaVoce(id, dopo))) return;
+  // Se la spunta ha spostato la card in un'altra scheda lo si dice, e si puo' tornare indietro
+  const schedaDopo = schedaVoce(v, a);
+  if (schedaDopo !== schedaPrima) {
+    const dove = schedeDi(a).find((x) => x.id === schedaDopo).etichetta;
+    mostraToast(`${v.cliente || 'Voce'} \u2014 spostata in \u201c${dove}\u201d.`, () => aggiornaVoce(id, prima));
   }
 }
-
-async function avanzaStato(id) {
-  const v = VOCI.find((x) => x.id === id);
-  if (!v) return;
-  const precedente = statoDi(v);
-  const nuovo = prossimoStato(v);
-  const nome = v.cliente || 'Voce';
-  if (!(await impostaStato(id, nuovo))) return;
-  const messaggi = {
-    in_corso: `${nome} \u2014 in lavorazione. Resta in lista.`,
-    chiusa: `${nome} \u2014 chiusa e spostata in archivio: non e\u0300 stata eliminata.`,
-    da_fare: `${nome} \u2014 di nuovo tra le voci da fare.`,
-  };
-  mostraToast(messaggi[nuovo], () => impostaStato(id, precedente));
-}
-
-const impostaStato = (id, stato) => aggiornaVoce(id, { stato });
 
 // ---------- modal ----------
 let modalId = null;
