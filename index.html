@@ -113,20 +113,21 @@
     border-radius: 10px; padding: 10px 11px; cursor: pointer; min-width: 0;
   }
   .voce-card.chiusa { opacity: .5; }
-  .voce-card .vc-testa { display: flex; align-items: flex-start; gap: 8px; }
   .voce-card .cliente { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
   .voce-card .note { font-size: .8rem; color: var(--ink-soft); margin-top: 4px; overflow-wrap: anywhere; }
   .voce-card .chip { display: inline-block; margin-top: 6px; }
+  .vc-spunte { display: flex; flex-direction: column; gap: 1px; margin-top: 7px; }
+  .vc-riga {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0; border: 0; background: none;
+    cursor: pointer; font: inherit; font-size: .82rem; color: var(--ink-soft); text-align: left;
+  }
+  .vc-riga.si { color: var(--ink); font-weight: 600; }
   .vc-spunta {
     flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line);
-    background: #fff; cursor: pointer; padding: 0; font-size: 13px; line-height: 18px; text-align: center;
-    font-weight: 700; color: transparent; margin-top: 1px;
+    background: #fff; font-size: 13px; line-height: 18px; text-align: center;
+    font-weight: 700; color: transparent;
   }
-  .vc-spunta.si { background: var(--tc); border-color: var(--tc); color: #fff; }
-  .vc-attesa {
-    display: inline-block; font-size: .7rem; font-weight: 600; margin-top: 5px;
-    color: var(--ambra); background: var(--ambra-bg); border-radius: 6px; padding: 0 5px;
-  }
+  .vc-riga.si .vc-spunta { background: var(--tc); border-color: var(--tc); color: #fff; }
   .vuota { padding: 14px; font-size: .85rem; color: var(--ink-soft); font-style: italic; }
 
   .quick { padding: 12px 14px; border-top: 1px solid var(--line); display: none; background: var(--paper); }
@@ -272,36 +273,46 @@ const perCliente = (a, b) => (a.cliente || '').localeCompare(b.cliente || '', 'i
 // ---------- Sine Limes 2: schede per gruppo ----------
 const AREA_SL2 = 'Sine Limes 2';
 const SCHEDE_SL2 = [
-  { id: 'pagati',     etichetta: 'Pagati',                gruppo: 'SL2 \u00b7 1 Pagato \u2013 pronta',                              colore: COLORI.verde.pieno,   campo: 'pagato' },
-  { id: 'inviato',    etichetta: 'Preventivo inviato',    gruppo: 'SL2 \u00b7 2 Preventivo inviato \u2013 attesa pagamento',        colore: COLORI.azzurro.pieno, campo: 'preventivo_inviato' },
-  { id: 'da-inviare', etichetta: 'Preventivo da inviare', gruppo: 'SL2 \u00b7 3 Preventivo da inviare',                             colore: COLORI.giallo.pieno,  campo: 'preventivo_inviato' },
-  { id: 'ricordare',  etichetta: 'Da ricordare',          gruppo: 'SL2 \u00b7 4 In sospeso \u2013 verificare',                      colore: COLORI.grigio.pieno,  campo: null },
+  { id: 'pagati',     etichetta: 'Pagati',                gruppo: 'SL2 \u00b7 1 Pagato \u2013 pronta',                       colore: COLORI.verde.pieno },
+  { id: 'inviato',    etichetta: 'Preventivo inviato',    gruppo: 'SL2 \u00b7 2 Preventivo inviato \u2013 attesa pagamento', colore: COLORI.azzurro.pieno },
+  { id: 'da-inviare', etichetta: 'Preventivo da inviare', gruppo: 'SL2 \u00b7 3 Preventivo da inviare',                      colore: COLORI.giallo.pieno },
+  { id: 'ricordare',  etichetta: 'Da ricordare',          gruppo: 'SL2 \u00b7 4 In sospeso \u2013 verificare',               colore: COLORI.grigio.pieno },
+  // Non e' un gruppo: raccoglie le pratiche con la spunta "Pratica inviata", da qualunque gruppo vengano
+  { id: 'inviate',    etichetta: 'Inviate',               gruppo: null,                                                     colore: COLORI.prugna.pieno },
 ];
 const GRUPPO_SL2_ESCLUSO = 'SL2 \u00b7 5 Non fa domanda';
 let schedaSL2 = 'pagati';
 const eSL2 = (a) => (a.nome || '').trim() === AREA_SL2;
-// Una voce senza gruppo riconosciuto finisce in "Da ricordare", cosi' non sparisce dalla vista
+// Scheda di partenza, decisa dal gruppo. Una voce senza gruppo riconosciuto finisce in
+// "Da ricordare", cosi' non sparisce dalla vista
+function schedaOrigine(v) {
+  const s = SCHEDE_SL2.find((x) => x.gruppo && x.gruppo === v.gruppo);
+  return s ? s.id : 'ricordare';
+}
 function schedaDi(v) {
   if (v.gruppo === GRUPPO_SL2_ESCLUSO) return null;
-  const s = SCHEDE_SL2.find((x) => x.gruppo === v.gruppo);
-  return s ? s.id : 'ricordare';
+  return v.pratica_inviata === true ? 'inviate' : schedaOrigine(v);
 }
 // La spunta e' gia' disegnata sulla card: il prefisso della nota sarebbe un doppione
 const notaPulita = (t) => (t || '').replace(/^\s*(?:\u2714\ufe0f?\s*Pagato\.|\u2610\s*Preventivo da inviare\.)\s*/, '');
 
+// Le quattro spunte di ogni pratica. "In lavorazione" non ha un campo suo: e' lo stato in_corso
+const SPUNTE_SL2 = [
+  { campo: 'pagato',             etichetta: 'Pagato',             attiva: (v) => v.pagato === true },
+  { campo: 'preventivo_inviato', etichetta: 'Preventivo inviato', attiva: (v) => v.preventivo_inviato === true },
+  { campo: 'lavorazione',        etichetta: 'In lavorazione',     attiva: (v) => statoDi(v) === 'in_corso' },
+  { campo: 'pratica_inviata',    etichetta: 'Pratica inviata',    attiva: (v) => v.pratica_inviata === true },
+];
+
 function cardSL2(v, s) {
-  const attesa = (s.id === 'inviato' && v.pagato !== true) || (s.id === 'da-inviare' && v.pagato === false);
-  const si = s.campo ? v[s.campo] === true : false;
   const nota = notaPulita(v.note);
+  const spunte = SPUNTE_SL2.map((x) => `<button class="vc-riga ${x.attiva(v) ? 'si' : ''}" data-spunta="${v.id}" data-campo="${x.campo}"><span class="vc-spunta">\u2714\ufe0e</span>${x.etichetta}</button>`).join('');
   return `
     <div class="voce-card ${eChiusa(v) ? 'chiusa' : ''}" data-id="${v.id}" style="--tc:${s.colore}">
-      <div class="vc-testa">
-        ${s.campo ? `<button class="vc-spunta ${si ? 'si' : ''}" data-spunta="${v.id}" data-campo="${s.campo}" title="${si ? 'Togli la spunta' : 'Metti la spunta'}">\u2714\ufe0e</button>` : ''}
-        <span class="cliente">${esc(v.cliente)}</span>
-      </div>
-      ${attesa ? '<span class="vc-attesa">In attesa di pagamento</span>' : ''}
+      <span class="cliente">${esc(v.cliente)}</span>
       ${nota ? `<div class="note">${esc(nota)}</div>` : ''}
       ${chip(v)}
+      <div class="vc-spunte">${spunte}</div>
     </div>`;
 }
 
@@ -478,9 +489,10 @@ async function aggiungi(areaId) {
   const area = AREE.find((a) => a.id === areaId);
   if (area && eSL2(area)) {
     const s = SCHEDE_SL2.find((x) => x.id === schedaSL2) || SCHEDE_SL2[0];
-    nuova.gruppo = s.gruppo;
+    nuova.gruppo = s.gruppo || SCHEDE_SL2.find((x) => x.id === 'ricordare').gruppo;
     if (s.id === 'pagati') nuova.pagato = true;
-    if (s.id === 'inviato') { nuova.preventivo_inviato = true; nuova.pagato = false; }
+    if (s.id === 'inviato') nuova.preventivo_inviato = true;
+    if (s.id === 'inviate') nuova.pratica_inviata = true;
   }
   const { data: riga, error } = await sb.from('voci').insert(nuova).select().single();
   if (error) { alert('Errore: ' + error.message); return; }
@@ -500,10 +512,20 @@ async function aggiornaVoce(id, campi) {
   return true;
 }
 
-function commutaSpunta(id, campo) {
+async function commutaSpunta(id, campo) {
   const v = VOCI.find((x) => x.id === id);
-  if (!v || !['pagato', 'preventivo_inviato'].includes(campo)) return;
-  return aggiornaVoce(id, { [campo]: v[campo] !== true });
+  const spunta = SPUNTE_SL2.find((x) => x.campo === campo);
+  if (!v || !spunta) return;
+  const era = spunta.attiva(v);
+  if (campo === 'lavorazione') return aggiornaVoce(id, { stato: era ? 'da_fare' : 'in_corso' });
+  if (!(await aggiornaVoce(id, { [campo]: !era }))) return;
+  // E' l'unica spunta che sposta la card: lo si dice, e si puo' tornare indietro
+  if (campo === 'pratica_inviata') {
+    const nome = v.cliente || 'Voce';
+    const dove = SCHEDE_SL2.find((x) => x.id === schedaOrigine(v)).etichetta;
+    mostraToast(era ? `${nome} \u2014 tornata in \u201c${dove}\u201d.` : `${nome} \u2014 spostata in \u201cInviate\u201d.`,
+      () => aggiornaVoce(id, { pratica_inviata: era }));
+  }
 }
 
 async function avanzaStato(id) {
