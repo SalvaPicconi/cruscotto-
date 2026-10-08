@@ -375,11 +375,20 @@ $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn
 $('logout').onclick = (e) => { e.preventDefault(); sb.auth.signOut(); };
 
 // ---------- dati ----------
+// Subito dopo il rinnovo del token, l'orologio del server dati può essere di un soffio
+// indietro rispetto a quello che l'ha emesso ("JWT issued at future"): basta riprovare
+const leggi = () => Promise.all([
+  sb.from('aree').select('*').order('ordine'),
+  sb.from('voci').select('*').order('cliente', { ascending: true }),
+]);
+const tokenInAnticipo = (r) => r.error && /JWT issued at future/i.test(r.error.message || '');
+
 async function carica() {
-  const [ra, rv] = await Promise.all([
-    sb.from('aree').select('*').order('ordine'),
-    sb.from('voci').select('*').order('cliente', { ascending: true }),
-  ]);
+  let [ra, rv] = await leggi();
+  for (let i = 0; i < 3 && (tokenInAnticipo(ra) || tokenInAnticipo(rv)); i++) {
+    await new Promise((ok) => setTimeout(ok, 1500));
+    [ra, rv] = await leggi();
+  }
   if (ra.error || rv.error) { alert('Errore di caricamento: ' + (ra.error || rv.error).message); return; }
   AREE = ra.data; VOCI = rv.data.sort(perCliente);
   render();
